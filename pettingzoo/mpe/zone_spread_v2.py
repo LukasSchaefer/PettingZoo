@@ -1,5 +1,5 @@
 from ._mpe_utils.simple_env import SimpleEnv, make_env
-from .scenarios.simple_zone import Scenario
+from .scenarios.zone_spread import Scenario
 from pettingzoo.utils.to_parallel import parallel_wrapper_fn
 
 
@@ -9,7 +9,7 @@ class raw_env(SimpleEnv):
             0.0 <= local_ratio <= 1.0
         ), "local_ratio is a proportion. Must be between 0 and 1."
         scenario = Scenario()
-        world = scenario.make_world(**env_args, num_agents=2, landmark_x_range=(1, 3), landmark_y_range=(-2, 2))
+        world = scenario.make_world(**env_args, N=3, landmark_x_range=(-1, 0), landmark_y_range=(-1, 0))
         super().__init__(scenario, world, max_frames, local_ratio)
 
 
