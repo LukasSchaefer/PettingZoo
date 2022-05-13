@@ -9,6 +9,7 @@ class Scenario(BaseScenario):
         N,
         landmark_x_range,
         landmark_y_range,
+        collision_pen=1,
     ):
         world = World()
         # set any world properties first
@@ -16,6 +17,7 @@ class Scenario(BaseScenario):
         num_agents = N
         num_landmarks = N
         world.collaborative = True
+        world.collision_pen = collision_pen
 
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
@@ -85,7 +87,7 @@ class Scenario(BaseScenario):
         if agent.collide:
             for a in world.agents:
                 if self.is_collision(a, agent):
-                    rew -= 1
+                    rew -= world.collision_pen
         return rew
 
     def global_reward(self, world):
