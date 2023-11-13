@@ -4,24 +4,21 @@ from .._mpe_utils.scenario import BaseScenario
 import random
 
 class Scenario(BaseScenario):
-    def make_world(self, groups, cooperative=False, shuffle_obs=False):
+    def make_world(self, groups):
         world = World()
         # set any world properties first
         world.dim_c = 2
         num_agents = sum(groups)
-        num_landmarks = len(groups)
+        num_landmarks = sum(groups) #len(groups)
         world.collaborative = True
 
-        self.shuffle_obs = shuffle_obs
-
-        self.cooperative = cooperative
         self.groups = groups
         self.group_indices = [a * [i] for i, a in enumerate(self.groups)]
         self.group_indices = [
             item for sublist in self.group_indices for item in sublist
         ]
         # generate colors:
-        self.colors = [np.random.random(3) for _ in groups]
+        # self.colors = [np.random.random(3) for _ in groups]
 
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
@@ -41,12 +38,15 @@ class Scenario(BaseScenario):
 
     def reset_world(self, world, np_random):
         # random properties for agents
+        # generate colors:
+        self.colors = [np.random.random(3) for _ in self.groups]
+
         for i, agent in zip(self.group_indices, world.agents):
             agent.color = self.colors[i]
 
         # random properties for landmarks
-        for landmark, color in zip(world.landmarks, self.colors):
-            landmark.color = color
+        for i, landmark in zip(self.group_indices, world.landmarks):
+            landmark.color = self.colors[i]
 
         # set random initial states
         for agent in world.agents:
@@ -85,61 +85,30 @@ class Scenario(BaseScenario):
         return True if dist < dist_min else False
 
     def reward(self, agent, world):
-        # Agents are rewarded based on minimum agent distance to each landmark, penalized for collisions
+        # Agents are rewarded based on minimum agent distance to each landmark in group, penalized for collisions
         rew = 0
-
-        i = world.agents.index(agent)
-        rew = -np.sqrt(
-            np.sum(
-                np.square(
-                    agent.state.p_pos
-                    - world.landmarks[self.group_indices[i]].state.p_pos
-                )
-            )
-        )
-
-        if self.cooperative:
-            return 0
-        else:
-            return rew
+        if agent.collide:
+            for a in world.agents:
+                if self.is_collision(a, agent):
+                    rew -= 1
+        return rew
 
     def global_reward(self, world):
         rew = 0
-
-        for i, a in zip(self.group_indices, world.agents):
-            l = world.landmarks[i]
-            rew -= np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos)))
-
-        if self.cooperative:
-            return rew
-        else:
-            return 0
+        for i, l in enumerate(world.landmarks):
+            # consider only agents in same group as landmark in distance calculation
+            group = self.group_indices[i]
+            dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for j, a in enumerate(world.agents) if self.group_indices[j] == group]
+            rew -= min(dists)
+        return rew
 
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
-        entity_pos = []
-        for entity in world.landmarks:  # world.entities:
-            entity_pos.append(entity.state.p_pos - agent.state.p_pos)
-        # entity colors
-        # entity_color = []
-        # for entity in world.landmarks:  # world.entities:
-        #     entity_color.append(entity.color)
-        # communication of all other agents
-        # comm = []
-        # other_pos = []
-        # for other in world.agents:
-        #     if other is agent:
-        #         continue
-        #     comm.append(other.state.c)
-        #     other_pos.append(other.state.p_pos - agent.state.p_pos)
-        # return np.concatenate(
-        #     [agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + comm
-        # )
-        x = np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos)
-        print(agent.state.p_vel, agent.state.p_pos, entity_pos)
-        if self.shuffle_obs:
-            x = list(x)
-            random.Random(self.group_indices[world.agents.index(agent)]).shuffle(x)
-            x = np.array(x)
-        return x
+        entity_pos_color = []
+        for entity in world.entities:
+            if entity is agent:
+                continue
+            entity_pos_color.append(entity.state.p_pos - agent.state.p_pos)
+            entity_pos_color.append(entity.color)
+        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [agent.color] + entity_pos_color)
 
