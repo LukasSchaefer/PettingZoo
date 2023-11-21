@@ -29,7 +29,7 @@ class Scenario(BaseScenario):
         # generate colors:
         self.colour_count = colour_count
         self.colors_rgb = generate_distinct_rgb_colors(colour_count)
-        self.colors_one_hot = np.eye(colour_count)
+        self.colors_rgb_to_one_hot = {str(rgb):one_hot for rgb, one_hot in zip(self.colors_rgb, np.eye(colour_count))}
 
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
@@ -51,7 +51,7 @@ class Scenario(BaseScenario):
         # random properties for agents
         # generate colors by randmoly sampling distinct colors from the pool:
         group_colors_ids = np_random.choice(self.colour_count, len(self.groups), replace=False)
-        self.colors = [self.colors_one_hot[color_id] for color_id in group_colors_ids]
+        self.colors = [self.colors_rgb[color_id] for color_id in group_colors_ids]
 
         for i, agent in zip(self.group_indices, world.agents):
             agent.color = self.colors[i]
@@ -123,5 +123,5 @@ class Scenario(BaseScenario):
             if entity is agent:
                 continue
             entity_pos_color.append(entity.state.p_pos - agent.state.p_pos)
-            entity_pos_color.append(entity.color)
+            entity_pos_color.append(self.colors_rgb_to_one_hot[str(entity.color)])
         return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [agent.color] + entity_pos_color)
