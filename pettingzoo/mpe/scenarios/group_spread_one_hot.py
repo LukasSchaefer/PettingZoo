@@ -7,7 +7,7 @@ def generate_distinct_rgb_colors(n):
     colors = set()
     
     while len(colors) < n:
-        color = tuple(np.random.randint(0, 256, size=3))
+        color = tuple(np.round(np.random.random(3), decimals=2))
         colors.add(color)
 
     return list(colors)
@@ -49,12 +49,12 @@ class Scenario(BaseScenario):
 
     def reset_world(self, world, np_random):
         # random properties for agents
-        # generate colors by randmoly sampling distinct colors from the pool:
+        # generate colors by randmoly sampling distinct colors from the pool
         group_colors_ids = np_random.choice(self.colour_count, len(self.groups), replace=False)
         self.colors = [self.colors_rgb[color_id] for color_id in group_colors_ids]
 
-        for i, agent in zip(self.group_indices, world.agents):
-            agent.color = self.colors[i]
+        for group_id, agent in zip(self.group_indices, world.agents):
+            agent.color = self.colors[group_id]
 
         # attribute colors to landmarks randomly
         landmarks_ids = np.arange(len(world.landmarks))
@@ -111,8 +111,7 @@ class Scenario(BaseScenario):
         rew = 0
         for i, l in enumerate(world.landmarks):
             # consider only agents in same group as landmark in distance calculation
-            group = self.group_indices[i]
-            dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for j, a in enumerate(world.agents) if self.group_indices[j] == group]
+            dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for j, a in enumerate(world.agents) if str(a.color) == str(l.color)]
             rew -= min(dists)
         return rew
 
@@ -124,4 +123,4 @@ class Scenario(BaseScenario):
                 continue
             entity_pos_color.append(entity.state.p_pos - agent.state.p_pos)
             entity_pos_color.append(self.colors_rgb_to_one_hot[str(entity.color)])
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [agent.color] + entity_pos_color)
+        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [self.colors_rgb_to_one_hot[str(agent.color)]] + entity_pos_color)
