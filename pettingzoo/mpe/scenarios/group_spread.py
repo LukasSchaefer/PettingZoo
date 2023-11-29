@@ -4,7 +4,7 @@ from .._mpe_utils.scenario import BaseScenario
 import random
 
 class Scenario(BaseScenario):
-    def make_world(self, groups):
+    def make_world(self, groups, reward_per_group=False):
         world = World()
         # set any world properties first
         world.dim_c = 2
@@ -17,6 +17,7 @@ class Scenario(BaseScenario):
         self.group_indices = [
             item for sublist in self.group_indices for item in sublist
         ]
+        self.reward_per_group = reward_per_group
         # generate colors:
         # self.colors = [np.random.random(3) for _ in groups]
 
@@ -43,10 +44,12 @@ class Scenario(BaseScenario):
 
         for i, agent in zip(self.group_indices, world.agents):
             agent.color = self.colors[i]
+            agent.group = i
 
         # random properties for landmarks
         for i, landmark in zip(self.group_indices, world.landmarks):
             landmark.color = self.colors[i]
+            landmark.group = i
 
         # set random initial states
         for agent in world.agents:
@@ -91,15 +94,24 @@ class Scenario(BaseScenario):
             for a in world.agents:
                 if self.is_collision(a, agent):
                     rew -= 1
+
+        if self.reward_per_group:
+            for i, l in enumerate(world.landmarks):
+                # consider only agents in same group as landmark in distance calculation
+                if l.group == agent.group:
+                    dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for a in world.agents if a.group == l.group]
+                    rew -= min(dists)
+
         return rew
 
     def global_reward(self, world):
         rew = 0
-        for i, l in enumerate(world.landmarks):
-            # consider only agents in same group as landmark in distance calculation
-            group = self.group_indices[i]
-            dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for j, a in enumerate(world.agents) if self.group_indices[j] == group]
-            rew -= min(dists)
+        if not self.reward_per_group:
+            for i, l in enumerate(world.landmarks):
+                # consider only agents in same group as landmark in distance calculation
+                group = self.group_indices[i]
+                dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for j, a in enumerate(world.agents) if self.group_indices[j] == group]
+                rew -= min(dists)
         return rew
 
     def observation(self, agent, world):

@@ -45,6 +45,8 @@ class Entity(object):  # properties and state of physical world entity
         self.state = EntityState()
         # mass
         self.initial_mass = 1.0
+        # group for group_spread task
+        self.group = None
 
     @property
     def mass(self):

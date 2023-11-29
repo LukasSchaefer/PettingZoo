@@ -13,7 +13,7 @@ def generate_distinct_rgb_colors(n):
     return list(colors)
 
 class Scenario(BaseScenario):
-    def make_world(self, groups, colour_count):
+    def make_world(self, groups, colour_count, reward_per_group=False):
         world = World()
         # set any world properties first
         world.dim_c = 2
@@ -26,6 +26,7 @@ class Scenario(BaseScenario):
         self.group_indices = [
             item for sublist in self.group_indices for item in sublist
         ]
+        self.reward_per_group = reward_per_group
         # generate colors:
         self.colour_count = colour_count
         self.colors_rgb = generate_distinct_rgb_colors(colour_count)
@@ -55,12 +56,14 @@ class Scenario(BaseScenario):
 
         for group_id, agent in zip(self.group_indices, world.agents):
             agent.color = self.colors[group_id]
+            agent.group = group_id
 
         # attribute colors to landmarks randomly
         landmarks_ids = np.arange(len(world.landmarks))
         np_random.shuffle(landmarks_ids)
         for group_id, land_id in zip(self.group_indices, landmarks_ids):
             world.landmarks[land_id].color = self.colors[group_id]
+            world.landmarks[land_id].group = group_id
 
         # set random initial states
         for agent in world.agents:
@@ -105,14 +108,23 @@ class Scenario(BaseScenario):
             for a in world.agents:
                 if self.is_collision(a, agent):
                     rew -= 1
+
+        if self.reward_per_group:
+            for i, l in enumerate(world.landmarks):
+                # consider only agents in same group as landmark in distance calculation
+                if l.group == agent.group:
+                    dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for a in world.agents if a.group == l.group]
+                    rew -= min(dists)
+
         return rew
 
     def global_reward(self, world):
         rew = 0
-        for i, l in enumerate(world.landmarks):
-            # consider only agents in same group as landmark in distance calculation
-            dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for j, a in enumerate(world.agents) if str(a.color) == str(l.color)]
-            rew -= min(dists)
+        if not self.reward_per_group:
+            for i, l in enumerate(world.landmarks):
+                # consider only agents in same group as landmark in distance calculation
+                dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for a in world.agents if a.group == l.group]
+                rew -= min(dists)
         return rew
 
     def observation(self, agent, world):
