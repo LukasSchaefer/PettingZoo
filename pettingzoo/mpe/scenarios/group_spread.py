@@ -4,7 +4,7 @@ from .._mpe_utils.scenario import BaseScenario
 import random
 
 class Scenario(BaseScenario):
-    def make_world(self, groups, reward_per_group=False):
+    def make_world(self, groups, reward_per_group=False, randomise_all_colors=False):
         world = World()
         # set any world properties first
         world.dim_c = 2
@@ -18,8 +18,11 @@ class Scenario(BaseScenario):
             item for sublist in self.group_indices for item in sublist
         ]
         self.reward_per_group = reward_per_group
-        # generate colors:
-        # self.colors = [np.random.random(3) for _ in groups]
+        self.randomise_all_colors = randomise_all_colors
+
+        if not self.randomise_all_colors:
+            # generate color per group
+            self.colors = [np.random.random(3) for _ in groups]
 
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
@@ -38,18 +41,24 @@ class Scenario(BaseScenario):
         return world
 
     def reset_world(self, world, np_random):
-        # random properties for agents
-        # generate colors:
-        self.colors = [np.random.random(3) for _ in self.groups]
+        if self.randomise_all_colors:
+            # generate colors if they are randomised for each episode
+            self.colors = [np.random.random(3) for _ in self.groups]
 
+        # random properties for agents
         for i, agent in zip(self.group_indices, world.agents):
             agent.color = self.colors[i]
             agent.group = i
 
         # random properties for landmarks
-        for i, landmark in zip(self.group_indices, world.landmarks):
-            landmark.color = self.colors[i]
-            landmark.group = i
+        landmarks_ids = np.arange(len(world.landmarks))
+        np_random.shuffle(landmarks_ids)
+        for group_id, land_id in zip(self.group_indices, landmarks_ids):
+            world.landmarks[land_id].color = self.colors[group_id]
+            world.landmarks[land_id].group = group_id
+        # for i, landmark in zip(self.group_indices, world.landmarks):
+        #     landmark.color = self.colors[i]
+        #     landmark.group = i
 
         # set random initial states
         for agent in world.agents:
@@ -116,11 +125,24 @@ class Scenario(BaseScenario):
 
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
+        # entity_pos_color = []
+        # for entity in world.entities:
+        #     if entity is agent:
+        #         continue
+        #     entity_pos_color.append(entity.state.p_pos - agent.state.p_pos)
+        #     entity_pos_color.append(entity.color)
         entity_pos_color = []
-        for entity in world.entities:
-            if entity is agent:
-                continue
+        for entity in world.landmarks:  # world.entities:
             entity_pos_color.append(entity.state.p_pos - agent.state.p_pos)
-            entity_pos_color.append(entity.color)
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [agent.color] + entity_pos_color)
-
+            if self.randomise_all_colors:
+                entity_pos_color.append(entity.color)
+            else:
+                # one hot encoding
+                entity_pos_color.append(np.eye(len(self.groups))[entity.group])
+        # communication of all other agents
+        other_pos = []
+        for other in world.agents:
+            if other is agent:
+                continue
+            other_pos.append(other.state.p_pos - agent.state.p_pos)
+        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.eye(len(self.groups))[agent.group]] + entity_pos_color + other_pos)
