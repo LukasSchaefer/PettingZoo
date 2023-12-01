@@ -4,12 +4,12 @@ from .._mpe_utils.scenario import BaseScenario
 import random
 
 class Scenario(BaseScenario):
-    def make_world(self, groups, reward_per_group=False, randomise_all_colors=False):
+    def make_world(self, groups, num_colors=None, reward_per_group=True, randomise_all_colors=False, shuffle_obs_per_agent=False):
         world = World()
         # set any world properties first
         world.dim_c = 2
         num_agents = sum(groups)
-        num_landmarks = sum(groups) #len(groups)
+        num_landmarks = sum(groups)
         world.collaborative = True
 
         self.groups = groups
@@ -19,10 +19,16 @@ class Scenario(BaseScenario):
         ]
         self.reward_per_group = reward_per_group
         self.randomise_all_colors = randomise_all_colors
+        self.shuffle_obs_per_agent = shuffle_obs_per_agent
+
+        if num_colors == None:
+            self.num_colors = len(self.groups)
+        else:
+            self.num_colors = num_colors
 
         if not self.randomise_all_colors:
             # generate color per group
-            self.colors = [np.random.random(3) for _ in groups]
+            self.colors = [np.random.random(3) for _ in range(self.num_colors)]
 
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
@@ -43,22 +49,37 @@ class Scenario(BaseScenario):
     def reset_world(self, world, np_random):
         if self.randomise_all_colors:
             # generate colors if they are randomised for each episode
-            self.colors = [np.random.random(3) for _ in self.groups]
+            colors = [np.random.random(3) for _ in self.groups]
+        else:
+            # assign one of the available colors to a group
+            colors = random.sample(self.colors, len(self.groups))
 
         # random properties for agents
         for i, agent in zip(self.group_indices, world.agents):
-            agent.color = self.colors[i]
+            agent.color = colors[i]
             agent.group = i
 
         # random properties for landmarks
-        landmarks_ids = np.arange(len(world.landmarks))
-        np_random.shuffle(landmarks_ids)
-        for group_id, land_id in zip(self.group_indices, landmarks_ids):
-            world.landmarks[land_id].color = self.colors[group_id]
-            world.landmarks[land_id].group = group_id
-        # for i, landmark in zip(self.group_indices, world.landmarks):
-        #     landmark.color = self.colors[i]
-        #     landmark.group = i
+        if self.shuffle_obs_per_agent:
+            for i, landmark in zip(self.group_indices, world.landmarks):
+                landmark.color = colors[i]
+                landmark.group = i
+            # assign each agent a landmark and agent ordering that wil determine order in the agent obs
+            # this allows entities to be shuffled per agent while keeping consistent for the episode
+            for agent in world.agents:
+                landmark_obs_order = np.arange(len(world.landmarks))
+                random.shuffle(landmark_obs_order)
+                agent.landmark_obs_order = landmark_obs_order
+                agent_obs_order = np.arange(len(world.agents))
+                random.shuffle(agent_obs_order)
+                agent.agent_obs_order = agent_obs_order
+        else:
+            # assign landmark groups randomly as landmarks won't be shuffled in obs
+            landmarks_ids = np.arange(len(world.landmarks))
+            np_random.shuffle(landmarks_ids)
+            for group_id, land_id in zip(self.group_indices, landmarks_ids):
+                world.landmarks[land_id].color = self.colors[group_id]
+                world.landmarks[land_id].group = group_id
 
         # set random initial states
         for agent in world.agents:
@@ -124,25 +145,34 @@ class Scenario(BaseScenario):
         return rew
 
     def observation(self, agent, world):
-        # get positions of all entities in this agent's reference frame
-        # entity_pos_color = []
-        # for entity in world.entities:
-        #     if entity is agent:
-        #         continue
-        #     entity_pos_color.append(entity.state.p_pos - agent.state.p_pos)
-        #     entity_pos_color.append(entity.color)
+        # positions and color of all landmarks
         entity_pos_color = []
-        for entity in world.landmarks:  # world.entities:
-            entity_pos_color.append(entity.state.p_pos - agent.state.p_pos)
+        if self.shuffle_obs_per_agent:
+            landmark_idxs = agent.landmark_obs_order
+        else:
+            landmark_idxs = np.arange(len(world.landmarks))
+        for i in landmark_idxs:
+            entity_pos_color.append(world.landmarks[i].state.p_pos - agent.state.p_pos)
             if self.randomise_all_colors:
-                entity_pos_color.append(entity.color)
+                entity_pos_color.append(world.landmarks[i].color)
             else:
                 # one hot encoding
-                entity_pos_color.append(np.eye(len(self.groups))[entity.group])
-        # communication of all other agents
-        other_pos = []
-        for other in world.agents:
-            if other is agent:
+                entity_pos_color.append(np.eye(len(self.groups))[world.landmarks[i].group])
+
+        # positions and color all other agents
+        other_pos_color = []
+        if self.shuffle_obs_per_agent:
+            other_idxs = agent.agent_obs_order
+        else:
+            other_idxs = np.arange(len(world.agents))
+        for i in other_idxs:
+            if world.agents[i] is agent:
                 continue
-            other_pos.append(other.state.p_pos - agent.state.p_pos)
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.eye(len(self.groups))[agent.group]] + entity_pos_color + other_pos)
+            other_pos_color.append(world.agents[i].state.p_pos - agent.state.p_pos)
+            if self.randomise_all_colors:
+                entity_pos_color.append(world.agents[i].color)
+            else:
+                # one hot encoding
+                entity_pos_color.append(np.eye(len(self.groups))[world.agents[i].group])
+
+        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.eye(len(self.groups))[agent.group]] + entity_pos_color + other_pos_color)
