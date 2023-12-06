@@ -264,7 +264,7 @@ class CaptureStdoutWrapper(BaseWrapper):
             return val
 
 
-class PrintBenchmarkDataWrapper(BaseWrapper):
+class LandmarkOccupancyLoggingWrapper(BaseWrapper):
     """
     this wrapper crashes for out of bounds actions
     Should be used for Discrete spaces
