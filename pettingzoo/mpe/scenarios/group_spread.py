@@ -49,20 +49,23 @@ class Scenario(BaseScenario):
     def reset_world(self, world, np_random):
         if self.randomise_all_colors:
             # generate colors if they are randomised for each episode
-            colors = [np.random.random(3) for _ in self.groups]
+            self.colors = [np.random.random(3) for _ in self.groups]
+            color_idxs = np.arange(len(self.groups))
         else:
             # assign one of the available colors to a group
-            colors = random.sample(self.colors, len(self.groups))
+            color_idxs = np.random.choice(self.num_colors, len(self.groups), replace=False)
 
         # random properties for agents
         for i, agent in zip(self.group_indices, world.agents):
-            agent.color = colors[i]
+            agent.color = self.colors[color_idxs[i]]
+            agent.color_idx = color_idxs[i]
             agent.group = i
 
         # random properties for landmarks
         if self.shuffle_obs_per_agent:
             for i, landmark in zip(self.group_indices, world.landmarks):
-                landmark.color = colors[i]
+                landmark.color = self.colors[color_idxs[i]]
+                landmark.color_idx = color_idxs[i]
                 landmark.group = i
             # assign each agent a landmark and agent ordering that wil determine order in the agent obs
             # this allows entities to be shuffled per agent while keeping consistent for the episode
@@ -78,7 +81,8 @@ class Scenario(BaseScenario):
             landmarks_ids = np.arange(len(world.landmarks))
             np_random.shuffle(landmarks_ids)
             for group_id, land_id in zip(self.group_indices, landmarks_ids):
-                world.landmarks[land_id].color = self.colors[group_id]
+                world.landmarks[land_id].color = self.colors[color_idxs[group_id]]
+                world.landmarks[land_id].color_idx = color_idxs[group_id]
                 world.landmarks[land_id].group = group_id
 
         # set random initial states
@@ -157,7 +161,7 @@ class Scenario(BaseScenario):
                 entity_pos_color.append(world.landmarks[i].color)
             else:
                 # one hot encoding
-                entity_pos_color.append(np.eye(len(self.groups))[world.landmarks[i].group])
+                entity_pos_color.append(np.eye(self.num_colors)[world.landmarks[i].color_idx])
 
         # positions and color all other agents
         other_pos_color = []
@@ -170,9 +174,9 @@ class Scenario(BaseScenario):
                 continue
             other_pos_color.append(world.agents[i].state.p_pos - agent.state.p_pos)
             if self.randomise_all_colors:
-                entity_pos_color.append(world.agents[i].color)
+                other_pos_color.append(world.agents[i].color)
             else:
                 # one hot encoding
-                entity_pos_color.append(np.eye(len(self.groups))[world.agents[i].group])
+                other_pos_color.append(np.eye(self.num_colors)[world.agents[i].color_idx])
 
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.eye(len(self.groups))[agent.group]] + entity_pos_color + other_pos_color)
+        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.eye(self.num_colors)[agent.group]] + entity_pos_color + other_pos_color)
