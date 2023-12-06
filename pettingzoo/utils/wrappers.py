@@ -264,6 +264,20 @@ class CaptureStdoutWrapper(BaseWrapper):
             return val
 
 
+class PrintBenchmarkDataWrapper(BaseWrapper):
+    """
+    this wrapper crashes for out of bounds actions
+    Should be used for Discrete spaces
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+
+    def observe(self, agent):
+        current_agent = self.env.world.agents[int(agent.split("_")[1])]
+        self.infos[agent][f"occupied_landmark_{agent}"] =  self.env.scenario.benchmark_data(current_agent, self.env.world)[-1]
+        return super().observe(agent)
+
 class AssertOutOfBoundsWrapper(BaseWrapper):
     """
     this wrapper crashes for out of bounds actions

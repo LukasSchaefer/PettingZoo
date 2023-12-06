@@ -51,6 +51,9 @@ class PettingZooWrapper(Env):
         rewards = [rewards[k] for k in self._env.agents]
         dones = [dones[k] for k in self._env.agents]
         info = {}
+        if all(dones):
+            for k in self._env.agents:
+                info = info | infos[k]
         return obs, rewards, dones, info
 
     def close(self):
