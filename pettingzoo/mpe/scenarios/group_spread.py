@@ -106,7 +106,7 @@ class Scenario(BaseScenario):
             ]
             min_dists += min(dists)
             rew -= min(dists)
-            if min(dists) < 0.1:
+            if agent.group == l.group and min(dists) < 0.1:
                 occupied_landmarks += 1
         if agent.collide:
             for a in world.agents:
