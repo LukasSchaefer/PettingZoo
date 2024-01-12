@@ -102,12 +102,13 @@ class Scenario(BaseScenario):
         for l in world.landmarks:
             dists = [
                 np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos)))
-                for a in world.agents
+                for a in world.agents if a.group == l.group
             ]
             min_dists += min(dists)
             rew -= min(dists)
-            if agent.group == l.group and min(dists) < 0.1:
-                occupied_landmarks += 1
+        dists_landmarks = [np.sqrt(np.sum(np.square(agent.state.p_pos - l.state.p_pos))) for l in world.landmarks]
+        if agent.group == world.landmarks[np.argmin(dists_landmarks)].group and min(dists_landmarks) < 0.2:
+            occupied_landmarks = 1
         if agent.collide:
             for a in world.agents:
                 if self.is_collision(a, agent):
