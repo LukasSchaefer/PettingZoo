@@ -47,8 +47,9 @@ class Scenario(BaseScenario):
 
     def reset_world(self, world, np_random):
         if self.randomise_all_colors:
+            # TODO: do nicer to avoid overlap here?
             # randomly generate new colors for each episode
-            self.colors = [np.array([i / (self.num_colors - 1)] * 3) for i in range(self.num_colors)]
+            self.colors = [np.random.random(3) for _ in range(self.num_colors)]
 
         # assign one of the available colors to a group
         color_idxs = np.random.choice(self.num_colors, len(self.groups), replace=False)
