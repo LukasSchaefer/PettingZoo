@@ -97,7 +97,7 @@ class Scenario(BaseScenario):
         self.num_colors = len(self.groups) if num_colors is None else num_colors
         self.color_config = ColorConfig.from_str(color_config)
 
-        if self.color_config == ColorConfig.CONTINUOUS_RANDOM and self.num_colors is not None:
+        if self.color_config == ColorConfig.CONTINUOUS_RANDOM and num_colors is not None:
             raise ValueError("Color config is set to CONTINUOUS_RANDOM but `num_colors` is explicitly set. `num_colors` value is not used!")
 
         self.colors = self.color_config.get_color_values(self.num_colors)
