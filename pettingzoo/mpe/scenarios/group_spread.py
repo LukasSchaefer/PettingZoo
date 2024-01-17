@@ -1,10 +1,83 @@
+from enum import Enum
+
 import numpy as np
+
 from .._mpe_utils.core import World, Agent, Landmark
 from .._mpe_utils.scenario import BaseScenario
-import random
+
+
+# Predefined colors for agents and landmarks
+COLORS = [
+    np.array([0.25, 0.25, 0.25]),
+    np.array([0.85, 0.25, 0.25]),
+    np.array([0.25, 0.85, 0.25]),
+    np.array([0.25, 0.25, 0.85]),
+    np.array([0.85, 0.85, 0.25]),
+    np.array([0.85, 0.25, 0.85]),
+    np.array([0.25, 0.85, 0.85]),
+    np.array([1.00, 0.00, 0.00]),
+    np.array([0.00, 1.00, 0.00]),
+    np.array([0.00, 0.00, 1.00]),
+]
+
+class ColorConfig(Enum):
+    CONTINUOUS_FIXED = 0    # used fixed set of colors (matched by `num_colors`) which agents observe as continuous vectors
+    ONEHOT_FIXED = 1        # used fixed set of colors (matched by `num_colors`) which agents observe as one-hot vectors
+    CONTINUOUS_RANDOM = 2   # used random colors which agents observe as continuous vectors (not using `num_colors`!)
+
+    @staticmethod
+    def from_str(label):
+        """
+        Returns the ColorConfig enum value corresponding to the given string label.
+        :param label: string label
+        :return: ColorConfig enum value
+        """
+        if label.lower().replace(" ", "_") in ("continuousfixed", "continuous_fixed"):
+            return ColorConfig.CONTINUOUS_FIXED
+        elif label.lower().replace(" ", "_") in ("onehotfixed", "onehot_fixed", "fixed"):
+            return ColorConfig.ONEHOT_FIXED
+        elif label.lower().replace(" ", "_") in ("continuousrandom", "continuous_random", "random"):
+            return ColorConfig.CONTINUOUS_RANDOM
+        else:
+            raise NotImplementedError(f"Unknown color config label '{label}'")
+
+    def get_color_values(self, num_colors):
+        """
+        Generate color values for the given color config and number of colors.
+        :param color_config: ColorConfig enum value
+        :param num_colors: number of colors
+        :return: list of color values (each color value is a numpy array of shape (3,))
+        """
+        assert num_colors is not None, "Number of colors must be specified!"
+        assert num_colors > 0 and num_colors <= len(COLORS), f"Number of colors must be in range [1, {len(COLORS)}]!"
+
+        if self == ColorConfig.CONTINUOUS_RANDOM:
+            # generate random set of colors
+            return [np.random.random(3) for _ in range(num_colors)]
+        elif self == ColorConfig.ONEHOT_FIXED or self == ColorConfig.CONTINUOUS_FIXED:
+            # generate fixed set of colors using only individual color channels 
+            return COLORS[:num_colors]
+        else:
+            raise NotImplementedError(f"Unknown color config '{self.name}'")
+    
+    def get_color_obs_value(self, colors, color_idx):
+        """
+        Generate color observation value for the given color config, colors and color index.
+        :param color_config: ColorConfig enum value
+        :param colors: list of color values (each color value is a numpy array of shape (3,))
+        :param color_idx: color index
+        :return: color observation value (numpy array of shape (3,))
+        """
+        if self == ColorConfig.CONTINUOUS_RANDOM or self == ColorConfig.CONTINUOUS_FIXED:
+            return colors[color_idx]
+        elif self == ColorConfig.ONEHOT_FIXED:
+            return np.eye(len(colors))[color_idx]
+        else:
+            raise NotImplementedError(f"Unknown color config '{self.name}'")
+
 
 class Scenario(BaseScenario):
-    def make_world(self, groups, num_colors=None, reward_per_group=True, randomise_all_colors=False, obs_onehot_colors=True, shuffle_obs_per_agent=False):
+    def make_world(self, groups, reward_per_group=True, color_config="onehot_fixed", num_colors=None, shuffle_obs_per_agent=False):
         world = World()
         # set any world properties first
         world.dim_c = 2
@@ -19,15 +92,15 @@ class Scenario(BaseScenario):
             item for sublist in self.group_indices for item in sublist
         ]
         self.reward_per_group = reward_per_group
-        self.randomise_all_colors = randomise_all_colors
         self.shuffle_obs_per_agent = shuffle_obs_per_agent
 
         self.num_colors = len(self.groups) if num_colors is None else num_colors
-        self.obs_onehot_colors = obs_onehot_colors
+        self.color_config = ColorConfig.from_str(color_config)
 
-        if not self.randomise_all_colors:
-            # generate color per group evenly spaced out if not randomised
-            self.colors = [np.array([i / (self.num_colors - 1)] * 3) for i in range(self.num_colors)]
+        if self.color_config == ColorConfig.CONTINUOUS_RANDOM and self.num_colors is not None:
+            raise ValueError("Color config is set to CONTINUOUS_RANDOM but `num_colors` is explicitly set. `num_colors` value is not used!")
+
+        self.colors = self.color_config.get_color_values(self.num_colors)
 
         # add agents
         world.agents = [Agent() for i in range(self.num_agents)]
@@ -46,10 +119,9 @@ class Scenario(BaseScenario):
         return world
 
     def reset_world(self, world, np_random):
-        if self.randomise_all_colors:
-            # TODO: do nicer to avoid overlap here?
+        if self.color_config == ColorConfig.CONTINUOUS_RANDOM:
             # randomly generate new colors for each episode
-            self.colors = [np.random.random(3) for _ in range(self.num_colors)]
+            self.colors = self.color_config.get_color_values(self.num_colors)
 
         # assign one of the available colors to a group
         color_idxs = np.random.choice(self.num_colors, len(self.groups), replace=False)
@@ -143,7 +215,7 @@ class Scenario(BaseScenario):
 
     def observation(self, agent, world):
         # own position, velocity, color
-        color = [np.eye(self.num_colors)[agent.color_idx]] if self.obs_onehot_colors else [agent.color]
+        color = [self.color_config.get_color_obs_value(self.colors, agent.color_idx)]
         entity_features = [agent.state.p_pos] + [agent.state.p_vel] + color
 
         # positions and color of all landmarks
@@ -152,7 +224,7 @@ class Scenario(BaseScenario):
             # relative position of landmark to agent
             landmark_pos_colors.append(world.landmarks[i].state.p_pos - agent.state.p_pos)
             # color of landmark
-            landmark_pos_colors.append(np.eye(self.num_colors)[world.landmarks[i].color_idx] if self.obs_onehot_colors else world.landmarks[i].color)
+            landmark_pos_colors.append(self.color_config.get_color_obs_value(self.colors, world.landmarks[i].color_idx))
 
         # positions and color all other agents
         other_agents_pos_colors = []
@@ -162,6 +234,6 @@ class Scenario(BaseScenario):
                 continue
             # relative position of other agent to agent
             other_agents_pos_colors.append(world.agents[i].state.p_pos - agent.state.p_pos)
-            other_agents_pos_colors.append(np.eye(self.num_colors)[world.agents[i].color_idx] if self.obs_onehot_colors else world.agents[i].color)
+            other_agents_pos_colors.append(self.color_config.get_color_obs_value(self.colors, world.agents[i].color_idx))
 
         return np.concatenate(entity_features + landmark_pos_colors + other_agents_pos_colors)
