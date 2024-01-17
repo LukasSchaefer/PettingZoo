@@ -1,4 +1,5 @@
 from enum import Enum
+import warnings
 
 import numpy as np
 
@@ -98,7 +99,7 @@ class Scenario(BaseScenario):
         self.color_config = ColorConfig.from_str(color_config)
 
         if self.color_config == ColorConfig.CONTINUOUS_RANDOM and num_colors is not None:
-            raise ValueError("Color config is set to CONTINUOUS_RANDOM but `num_colors` is explicitly set. `num_colors` value is not used!")
+            warnings.warn("Color config is set to CONTINUOUS_RANDOM but `num_colors` is explicitly set. `num_colors` value is not used!")
 
         self.colors = self.color_config.get_color_values(self.num_colors)
 
