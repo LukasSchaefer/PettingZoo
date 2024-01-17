@@ -8,10 +8,10 @@ from .._mpe_utils.scenario import BaseScenario
 
 # Predefined colors for agents and landmarks
 COLORS = [
-    np.array([0.25, 0.25, 0.25]),
     np.array([0.85, 0.25, 0.25]),
     np.array([0.25, 0.85, 0.25]),
     np.array([0.25, 0.25, 0.85]),
+    np.array([0.25, 0.25, 0.25]),
     np.array([0.85, 0.85, 0.25]),
     np.array([0.85, 0.25, 0.85]),
     np.array([0.25, 0.85, 0.85]),
@@ -77,7 +77,7 @@ class ColorConfig(Enum):
 
 
 class Scenario(BaseScenario):
-    def make_world(self, groups, reward_per_group=True, color_config="onehot_fixed", num_colors=None, shuffle_obs_per_agent=False):
+    def make_world(self, groups, reward_per_group=True, color_config="onehot_fixed", num_colors=None, shuffle_obs_per_agent=True):
         world = World()
         # set any world properties first
         world.dim_c = 2
