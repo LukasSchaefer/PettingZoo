@@ -41,6 +41,9 @@ class ColorConfig(Enum):
             return ColorConfig.CONTINUOUS_RANDOM
         else:
             raise NotImplementedError(f"Unknown color config label '{label}'")
+    
+    def __str__(self):
+        return self.name.lower()
 
     def get_color_values(self, num_colors):
         """
