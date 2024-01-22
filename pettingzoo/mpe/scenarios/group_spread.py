@@ -81,7 +81,7 @@ class ColorConfig(Enum):
 
 
 class Scenario(BaseScenario):
-    def make_world(self, groups, reward_per_group=True, color_config="onehot_fixed", num_colors=None, shuffle_obs_per_agent=True):
+    def make_world(self, groups, reward_per_group=True, color_config="onehot_fixed", num_colors=None, shuffle_obs_per_agent=True, occupancy_reward=False):
         world = World()
         # set any world properties first
         world.dim_c = 2
@@ -97,6 +97,7 @@ class Scenario(BaseScenario):
         ]
         self.reward_per_group = reward_per_group
         self.shuffle_obs_per_agent = shuffle_obs_per_agent
+        self.occupancy_reward = occupancy_reward
 
         self.num_colors = len(self.groups) if num_colors is None else num_colors
         self.color_config = ColorConfig.from_str(color_config)
@@ -174,8 +175,8 @@ class Scenario(BaseScenario):
             ]
             min_dists += min(dists)
             rew -= min(dists)
-        dists_landmarks = [np.sqrt(np.sum(np.square(agent.state.p_pos - l.state.p_pos))) for l in world.landmarks]
-        if agent.group == world.landmarks[np.argmin(dists_landmarks)].group and min(dists_landmarks) < 0.2:
+        landmark_occupancy = [self.is_collision(agent, l) for l in world.landmarks if agent.group == l.group]
+        if any(landmark_occupancy):
             occupied_landmarks = 1
         if agent.collide:
             for a in world.agents:
@@ -204,7 +205,8 @@ class Scenario(BaseScenario):
                 if l.group == agent.group:
                     dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for a in world.agents if a.group == l.group]
                     rew -= min(dists)
-
+                    if self.occupancy_reward:
+                        rew += any([self.is_collision(l, a) for a in world.agents if a.group == l.group])
         return rew
 
     def global_reward(self, world):
@@ -215,6 +217,8 @@ class Scenario(BaseScenario):
                 group = self.group_indices[i]
                 dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for j, a in enumerate(world.agents) if self.group_indices[j] == group]
                 rew -= min(dists)
+                if self.occupancy_reward:
+                    rew += any([self.is_collision(l, a) for j, a in enumerate(world.agents) if self.group_indices[j] == group])
         return rew
 
     def observation(self, agent, world):
