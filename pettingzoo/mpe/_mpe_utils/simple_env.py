@@ -23,7 +23,7 @@ class SimpleEnv(AECEnv):
 
     metadata = {'render.modes': ['human', 'rgb_array']}
 
-    def __init__(self, scenario, world, max_frames, local_ratio=None):
+    def __init__(self, scenario, world, max_frames, local_ratio=None, reset_render=False):
         super(SimpleEnv, self).__init__()
 
         self.seed()
@@ -32,6 +32,7 @@ class SimpleEnv(AECEnv):
         self.scenario = scenario
         self.world = world
         self.local_ratio = local_ratio
+        self.reset_render = reset_render
 
         self.scenario.reset_world(self.world, self.np_random)
 
@@ -77,6 +78,12 @@ class SimpleEnv(AECEnv):
         ).astype(np.float32)
 
     def reset(self, observe=True):
+        if self.reset_render:
+            self._reset_render()
+            if self.viewer is not None:
+                self.viewer.close()
+                self.viewer = None
+
         self.scenario.reset_world(self.world, self.np_random)
 
         self.rewards = {name: 0.0 for name in self.agents}
