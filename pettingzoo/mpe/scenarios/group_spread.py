@@ -22,9 +22,10 @@ COLORS = [
 ]
 
 class ColorConfig(Enum):
-    CONTINUOUS_FIXED = 0    # used fixed set of colors (matched by `num_colors`) which agents observe as continuous vectors
-    ONEHOT_FIXED = 1        # used fixed set of colors (matched by `num_colors`) which agents observe as one-hot vectors
-    CONTINUOUS_RANDOM = 2   # used random colors which agents observe as continuous vectors (not using `num_colors`!)
+    BINARY_MATCH_FIXED = 0  # used fixed set of colors (matched by `num_colors`) with agents observing binary flag (0, 1) whether the color matches their own
+    CONTINUOUS_FIXED = 1    # used fixed set of colors (matched by `num_colors`) which agents observe as continuous vectors
+    ONEHOT_FIXED = 2        # used fixed set of colors (matched by `num_colors`) which agents observe as one-hot vectors
+    CONTINUOUS_RANDOM = 3   # used random colors which agents observe as continuous vectors (not using `num_colors`!)
 
     @staticmethod
     def from_str(label):
@@ -33,7 +34,9 @@ class ColorConfig(Enum):
         :param label: string label
         :return: ColorConfig enum value
         """
-        if label.lower().replace(" ", "_") in ("continuousfixed", "continuous_fixed"):
+        if label.lower().replace(" ", "_") in ("binarymatchfixed", "binary_match_fixed", "binary"):
+            return ColorConfig.BINARY_MATCH_FIXED
+        elif label.lower().replace(" ", "_") in ("continuousfixed", "continuous_fixed"):
             return ColorConfig.CONTINUOUS_FIXED
         elif label.lower().replace(" ", "_") in ("onehotfixed", "onehot_fixed", "fixed"):
             return ColorConfig.ONEHOT_FIXED
@@ -58,24 +61,26 @@ class ColorConfig(Enum):
         if self == ColorConfig.CONTINUOUS_RANDOM:
             # generate random set of colors
             return [np.random.random(3) for _ in range(num_colors)]
-        elif self == ColorConfig.ONEHOT_FIXED or self == ColorConfig.CONTINUOUS_FIXED:
+        else:
             # generate fixed set of colors using only individual color channels 
             return COLORS[:num_colors]
-        else:
-            raise NotImplementedError(f"Unknown color config '{self.name}'")
     
-    def get_color_obs_value(self, colors, color_idx):
+    def get_color_obs_value(self, colors, own_color_idx, color_idx):
         """
-        Generate color observation value for the given color config, colors and color index.
+        Generate color observation value for the given color config, colors, the color index of the
+            entity's own color and color index of the to-be-encoded color.
         :param color_config: ColorConfig enum value
         :param colors: list of color values (each color value is a numpy array of shape (3,))
-        :param color_idx: color index
+        :param own_color_idx: color index of the entity's own color
+        :param color_idx: color index of the to-be-encoded color
         :return: color observation value (numpy array of shape (3,))
         """
         if self == ColorConfig.CONTINUOUS_RANDOM or self == ColorConfig.CONTINUOUS_FIXED:
             return colors[color_idx]
         elif self == ColorConfig.ONEHOT_FIXED:
             return np.eye(len(colors))[color_idx]
+        elif self == ColorConfig.BINARY_MATCH_FIXED:
+            return np.array([1.0 if own_color_idx == color_idx else 0.0])
         else:
             raise NotImplementedError(f"Unknown color config '{self.name}'")
 
@@ -223,7 +228,11 @@ class Scenario(BaseScenario):
 
     def observation(self, agent, world):
         # own position, velocity, color
-        color = [self.color_config.get_color_obs_value(self.colors, agent.color_idx)]
+        if self.color_config == ColorConfig.BINARY_MATCH_FIXED:
+            # no reason to observe own color (always matches own color)
+            color = []
+        else:
+            color = [self.color_config.get_color_obs_value(self.colors, agent.color_idx, agent.color_idx)]
         entity_features = [agent.state.p_pos] + [agent.state.p_vel] + color
 
         # positions and color of all landmarks
@@ -232,7 +241,7 @@ class Scenario(BaseScenario):
             # relative position of landmark to agent
             landmark_pos_colors.append(world.landmarks[i].state.p_pos - agent.state.p_pos)
             # color of landmark
-            landmark_pos_colors.append(self.color_config.get_color_obs_value(self.colors, world.landmarks[i].color_idx))
+            landmark_pos_colors.append(self.color_config.get_color_obs_value(self.colors, agent.color_idx, world.landmarks[i].color_idx))
 
         # positions and color all other agents
         other_agents_pos_colors = []
@@ -242,6 +251,6 @@ class Scenario(BaseScenario):
                 continue
             # relative position of other agent to agent
             other_agents_pos_colors.append(world.agents[i].state.p_pos - agent.state.p_pos)
-            other_agents_pos_colors.append(self.color_config.get_color_obs_value(self.colors, world.agents[i].color_idx))
+            other_agents_pos_colors.append(self.color_config.get_color_obs_value(self.colors, agent.color_idx, world.agents[i].color_idx))
 
         return np.concatenate(entity_features + landmark_pos_colors + other_agents_pos_colors)
