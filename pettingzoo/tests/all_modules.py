@@ -60,6 +60,7 @@ from pettingzoo.mpe import simple_reference_v1
 from pettingzoo.mpe import simple_speaker_listener_v2
 from pettingzoo.mpe import simple_spread_v1
 from pettingzoo.mpe import simple_tag_v1
+from pettingzoo.mpe import tag_heuristic_prey_v1
 from pettingzoo.mpe import simple_world_comm_v1
 from pettingzoo.mpe import simple_v1
 
@@ -141,6 +142,7 @@ all_environments = {
     "mpe/simple_speaker_listener": simple_speaker_listener_v2,
     "mpe/simple_spread": simple_spread_v1,
     "mpe/simple_tag": simple_tag_v1,
+    "mpe/tag_heuristic_prey": tag_heuristic_prey_v1,
     "mpe/simple_world_comm": simple_world_comm_v1,
     "mpe/simple": simple_v1,
 

@@ -9,7 +9,7 @@ from pettingzoo.utils import wrappers
 def make_env(raw_env):
     def env(**kwargs):
         env = raw_env(**kwargs)
-        env = wrappers.LandmarkOccupancyLoggingWrapper(env)
+        # env = wrappers.LandmarkOccupancyLoggingWrapper(env)
         env = wrappers.AssertOutOfBoundsWrapper(env)
         backup_policy = "taking zero action (no movement, communication 0)"
         env = wrappers.NanNoOpWrapper(env, 0, backup_policy)
