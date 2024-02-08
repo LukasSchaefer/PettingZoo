@@ -82,6 +82,8 @@ parameterized_envs = [
     (simple_spread_v1.env, dict(N=5)),
     (simple_tag_v1.env, dict(num_good=5,num_adversaries=10,num_obstacles=4)),
     (simple_tag_v1.env, dict(num_good=1,num_adversaries=1,num_obstacles=1)),
+    (tag_heuristic_prey_v1.env, dict(num_good=5,num_adversaries=10,num_obstacles=4)),
+    (tag_heuristic_prey_v1.env, dict(num_good=1,num_adversaries=1,num_obstacles=1)),
     (simple_world_comm_v1.env, dict(num_good=5,num_adversaries=10,num_obstacles=4,num_food=3)),
     (simple_world_comm_v1.env, dict(num_good=1,num_adversaries=1,num_obstacles=1,num_food=1)),
 

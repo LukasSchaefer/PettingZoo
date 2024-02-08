@@ -3,13 +3,13 @@ from .._mpe_utils.core import World, Agent, Landmark
 from .._mpe_utils.scenario import BaseScenario
 
 class Scenario(BaseScenario):
-    def make_world(self, num_good=1, num_adversaries=3, num_obstacles=2, max_speed_prey = 1.0, vary_prey_speed = False):
+    def make_world(self, num_preys=1, num_predators=3, num_obstacles=2, max_speed_prey = 1.0, vary_prey_speed = False):
         world = World()
         # set any world properties first
         world.dim_c = 2
-        num_good_agents = num_good
-        num_adversaries = num_adversaries
-        num_agents = num_adversaries + num_good_agents
+        num_preys_agents = num_preys
+        num_predators = num_predators
+        num_agents = num_predators + num_preys_agents
         num_landmarks = num_obstacles
 
         self.max_speed_prey = max_speed_prey
@@ -18,9 +18,9 @@ class Scenario(BaseScenario):
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
-            agent.adversary = True if i < num_adversaries else False
+            agent.adversary = True if i < num_predators else False
             base_name = "adversary" if agent.adversary else "agent"
-            base_index = i if i < num_adversaries else i - num_adversaries
+            base_index = i if i < num_predators else i - num_predators
             agent.name = '{}_{}'.format(base_name, base_index)
             agent.collide = True
             agent.silent = True
