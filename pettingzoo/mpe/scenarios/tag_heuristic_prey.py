@@ -2,8 +2,10 @@ import numpy as np
 from .._mpe_utils.core import World, Agent, Landmark
 from .._mpe_utils.scenario import BaseScenario
 
+PREY_SPEED_MULTIPLIERS = [0.1, 0.3, 0.6, 1]
+
 class Scenario(BaseScenario):
-    def make_world(self, num_preys=1, num_predators=3, num_obstacles=2, max_speed_prey = 1.0, vary_prey_speed = False):
+    def make_world(self, num_preys=1, num_predators=3, num_obstacles=2, max_speed_prey = 1.0, vary_prey_speed = False, prey_speed_observation = True, all_prey_captured_bonus = True):
         world = World()
         # set any world properties first
         world.dim_c = 2
@@ -14,6 +16,8 @@ class Scenario(BaseScenario):
 
         self.max_speed_prey = max_speed_prey
         self.vary_prey_speed = vary_prey_speed
+        self.all_prey_captured_bonus = all_prey_captured_bonus
+        self.prey_speed_observation = prey_speed_observation
 
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
@@ -39,10 +43,10 @@ class Scenario(BaseScenario):
 
     def reset_world(self, world, np_random):
         if self.vary_prey_speed:
-            new_prey_speed = np.random.uniform(0, self.max_speed_prey)
+            self.new_prey_speed = np.random.choice(PREY_SPEED_MULTIPLIERS) * self.max_speed_prey #np.random.uniform(0, self.max_speed_prey)
             for agent in world.agents:
                 if not agent.adversary:
-                    agent.max_speed = new_prey_speed
+                    agent.max_speed = self.new_prey_speed
         # random properties for agents
         for i, agent in enumerate(world.agents):
             agent.color = np.array([0.35, 0.85, 0.35]) if not agent.adversary else np.array([0.85, 0.35, 0.35])
@@ -129,6 +133,9 @@ class Scenario(BaseScenario):
                 for adv in adversaries:
                     if self.is_collision(ag, adv):
                         rew += 10
+            all_agents_captured = all([any([self.is_collision(ag, adv) for adv in adversaries]) for ag in agents])
+            if self.all_prey_captured_bonus and all_agents_captured:
+                 rew += 50 * len(adversaries)
         return rew
 
     def observation(self, agent, world):
@@ -148,4 +155,7 @@ class Scenario(BaseScenario):
             other_pos.append(other.state.p_pos - agent.state.p_pos)
             if not other.adversary:
                 other_vel.append(other.state.p_vel)
-        return np.concatenate([agent.state.p_pos] + [agent.state.p_vel]  + entity_pos + other_pos + other_vel)
+        observation_self = [agent.state.p_pos] + [agent.state.p_vel]
+        if self.prey_speed_observation:
+            observation_self.append([self.new_prey_speed])
+        return np.concatenate( observation_self + entity_pos + other_pos + other_vel)
