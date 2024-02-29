@@ -21,6 +21,7 @@ class Scenario(BaseScenario):
 
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
+        world.num_predators = num_predators
         for i, agent in enumerate(world.agents):
             agent.adversary = True if i < num_predators else False
             base_name = "adversary" if agent.adversary else "agent"
@@ -65,9 +66,9 @@ class Scenario(BaseScenario):
 
     def benchmark_data(self, agent, world):
         # returns data for benchmarking purposes
-        if agent.adversary:
+        if not agent.adversary:
             collisions = 0
-            for a in self.good_agents(world):
+            for a in self.adversaries(world):
                 if self.is_collision(a, agent):
                     collisions += 1
             return collisions

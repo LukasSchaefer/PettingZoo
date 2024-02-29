@@ -1,5 +1,7 @@
 from gym.core import Env
 from gym.spaces import Box, Discrete, Tuple
+
+from collections import defaultdict
 import importlib
 import numpy as np
 from enum import Enum
@@ -84,6 +86,8 @@ class HeuristicPreyWrapper(PettingZooWrapper):
         obs = self._env.reset()
         obs = tuple([obs[k] for k in self._env.agents])
         self.agent_cur_locations = [obs_[:2] for obs_ in obs]
+
+        self.episode_infos = defaultdict(list)
         return obs[:-self.num_preys]
 
     def get_prey_actions(self):
@@ -130,9 +134,16 @@ class HeuristicPreyWrapper(PettingZooWrapper):
         obs = obs[:-self.num_preys]
         rewards = rewards[:-self.num_preys]
         dones = dones[:-self.num_preys]
-        info = {}
+
+        for k in self._env.agents:
+            for metric_name, metric_val in infos[k].items():
+                if "episode" in metric_name:
+                    self.episode_infos[metric_name].append(metric_val)
         
+        info = {}
         if all(dones):
-            for k in self._env.agents[:-self.num_preys]:
+            for k in self._env.agents:
                 info = info | infos[k]
+            info = info | {k:sum(v) for k, v in self.episode_infos.items()}
         return obs, rewards, dones, info
+            
