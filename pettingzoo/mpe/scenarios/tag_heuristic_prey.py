@@ -13,7 +13,7 @@ class Scenario(BaseScenario):
         num_predators = num_predators
         num_agents = num_predators + num_preys_agents
         num_landmarks = num_obstacles
-
+        self.new_prey_speed = max_speed_prey
         self.max_speed_prey = max_speed_prey
         self.vary_prey_speed = vary_prey_speed
         self.all_prey_captured_bonus = all_prey_captured_bonus
@@ -44,7 +44,7 @@ class Scenario(BaseScenario):
 
     def reset_world(self, world, np_random):
         if self.vary_prey_speed:
-            self.new_prey_speed = np.random.choice(PREY_SPEED_MULTIPLIERS) * self.max_speed_prey #np.random.uniform(0, self.max_speed_prey)
+            self.new_prey_speed = np.random.choice(PREY_SPEED_MULTIPLIERS) * self.max_speed_prey 
             for agent in world.agents:
                 if not agent.adversary:
                     agent.max_speed = self.new_prey_speed
@@ -124,19 +124,20 @@ class Scenario(BaseScenario):
         # Adversaries are rewarded for collisions with agents
         rew = 0
         shape = False
-        agents = self.good_agents(world)
+        preys = self.good_agents(world)
         adversaries = self.adversaries(world)
         if shape:  # reward can optionally be shaped (decreased reward for increased distance from agents)
-            for adv in adversaries:
-                rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - adv.state.p_pos))) for a in agents])
+            for pr in preys:
+                rew -= min([np.sqrt(np.sum(np.square(pr.state.p_pos - adv.state.p_pos))) for adv in adversaries])
         if agent.collide:
-            for ag in agents:
+            for pr in preys:
                 for adv in adversaries:
-                    if self.is_collision(ag, adv):
+                    if self.is_collision(pr, adv):
                         rew += 10
-            all_agents_captured = all([any([self.is_collision(ag, adv) for adv in adversaries]) for ag in agents])
-            if self.all_prey_captured_bonus and all_agents_captured:
-                 rew += 50 * len(adversaries)
+                        break
+            all_preys_captured = all([any([self.is_collision(pr, adv) for adv in adversaries]) for pr in preys])
+            if all_preys_captured:
+                 rew += 10 * len(adversaries)
         return rew
 
     def observation(self, agent, world):

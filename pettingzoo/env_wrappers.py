@@ -145,11 +145,9 @@ class HeuristicPreyWrapper(PettingZooWrapper):
             for k in self._env.agents:
                 info = info | infos[k]
             info = info | {k:sum(v) for k, v in self.episode_infos.items()}
-            all_prey_collisions = np.transpose(np.array([v for k,v in self.episode_infos.items() if "collisions_prey" in k]))
-            info["all_prey_collided_average"] = 0 if not np.all(all_prey_collisions) else np.mean(all_prey_collisions)
-            info["best_prey_collided_average"] = np.max(all_prey_collisions)
-            if np.all(all_prey_collisions):            
-                print('uye')
+            prey_collisions = np.transpose(np.array([v for k,v in self.episode_infos.items() if "collisions_prey" in k]))
+            all_prey_collisions = np.all(prey_collisions, axis=1)
+            info["all_prey_collided_average"] = 0 if not np.any(all_prey_collisions) else np.sum(prey_collisions[all_prey_collisions])/self.num_preys
+            info["best_prey_collided_average"] = np.max(np.sum(all_prey_collisions, axis=0))
 
         return obs, rewards, dones, info
-            
