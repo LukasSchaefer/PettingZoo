@@ -5,7 +5,7 @@ from .._mpe_utils.scenario import BaseScenario
 PREY_SPEED_MULTIPLIERS = [0.1, 0.3, 0.6, 1]
 
 class Scenario(BaseScenario):
-    def make_world(self, num_preys=1, num_predators=3, num_obstacles=2, max_speed_prey = 1.0, vary_prey_speed = False, prey_speed_observation = True, all_prey_captured_bonus = True):
+    def make_world(self, num_preys=1, num_predators=3, num_obstacles=2, max_speed_prey = 1.0, vary_prey_speed = False, prey_speed_observation = True, all_prey_captured_bonus = True, disable_agent_collisions=False):
         world = World()
         # set any world properties first
         world.dim_c = 2
@@ -22,6 +22,7 @@ class Scenario(BaseScenario):
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         world.num_predators = num_predators
+        world.disable_agent_collisions = disable_agent_collisions
         for i, agent in enumerate(world.agents):
             agent.adversary = True if i < num_predators else False
             base_name = "adversary" if agent.adversary else "agent"
@@ -30,21 +31,21 @@ class Scenario(BaseScenario):
             agent.collide = True
             agent.silent = True
             agent.size = 0.075 if agent.adversary else 0.05
-            agent.accel = 3.0 if agent.adversary else 4.0
+            agent.accel = 3.0 #if agent.adversary else 4.0
             agent.max_speed = 1.0 if agent.adversary else self.max_speed_prey
         # add landmarks
-        world.landmarks = [Landmark() for i in range(num_landmarks)]
-        for i, landmark in enumerate(world.landmarks):
-            landmark.name = 'landmark %d' % i
-            landmark.collide = True
-            landmark.movable = False
-            landmark.size = 0.2
-            landmark.boundary = False
+        world.landmarks = [] #Landmark() for i in range(num_landmarks)]
+        #for i, landmark in enumerate(world.landmarks):
+        #    landmark.name = 'landmark %d' % i
+        #    landmark.collide = True
+        #    landmark.movable = False
+        #    landmark.size = 0.2
+        #    landmark.boundary = False
         return world
 
     def reset_world(self, world, np_random):
         if self.vary_prey_speed:
-            self.new_prey_speed = np.random.choice(PREY_SPEED_MULTIPLIERS) * self.max_speed_prey 
+            self.new_prey_speed = np.random.choice(PREY_SPEED_MULTIPLIERS) * self.max_speed_prey #np.random.uniform(0, self.max_speed_prey)
             for agent in world.agents:
                 if not agent.adversary:
                     agent.max_speed = self.new_prey_speed
@@ -137,7 +138,7 @@ class Scenario(BaseScenario):
                         break
             all_preys_captured = all([any([self.is_collision(pr, adv) for adv in adversaries]) for pr in preys])
             if all_preys_captured:
-                 rew += 10 * len(adversaries)
+                    rew += 100 #* len(adversaries)
         return rew
 
     def observation(self, agent, world):
@@ -160,4 +161,4 @@ class Scenario(BaseScenario):
         observation_self = [agent.state.p_pos] + [agent.state.p_vel]
         if self.prey_speed_observation:
             observation_self.append([self.new_prey_speed])
-        return np.concatenate( observation_self + entity_pos + other_pos + other_vel)
+        return np.concatenate(observation_self + entity_pos + other_pos + other_vel)

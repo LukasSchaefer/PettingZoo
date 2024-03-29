@@ -99,6 +99,7 @@ class World(object):  # multi-agent world
         # contact response parameters
         self.contact_force = 1e+2
         self.contact_margin = 1e-3
+        self.disable_agent_collisions = False
 
     # return all entities in the world
     @property
@@ -153,6 +154,8 @@ class World(object):  # multi-agent world
                     if(p_force[a] is None):
                         p_force[a] = 0.0
                     p_force[a] = f_a + p_force[a]
+                if self.disable_agent_collisions and (entity_a in self.agents and entity_b in self.agents):
+                    continue
                 if(f_b is not None):
                     if(p_force[b] is None):
                         p_force[b] = 0.0

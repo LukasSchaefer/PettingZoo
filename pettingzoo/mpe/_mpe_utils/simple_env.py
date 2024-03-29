@@ -29,7 +29,7 @@ class SimpleEnv(AECEnv):
 
         self.seed()
 
-        self.max_frames = max_frames
+        self.max_frames = 100
         self.scenario = scenario
         self.world = world
         self.local_ratio = local_ratio
