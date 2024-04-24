@@ -263,6 +263,21 @@ class CaptureStdoutWrapper(BaseWrapper):
                 val = stdout.getvalue()
             return val
 
+class PreyCollisionLoggingWrapper(BaseWrapper):
+    """
+    this wrapper crashes for out of bounds actions
+    Should be used for Discrete spaces
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+
+    def observe(self, agent):
+        if not "adversary" in agent:
+            prey_id =  int(agent.split("_")[1])
+            current_agent = self.env.world.agents[self.env.world.num_predators + prey_id]
+            self.infos[agent][f"episode_collisions_prey_{prey_id}"] =  self.env.scenario.benchmark_data(current_agent, self.env.world)
+        return super().observe(agent)
 
 class LandmarkOccupancyLoggingWrapper(BaseWrapper):
     """
