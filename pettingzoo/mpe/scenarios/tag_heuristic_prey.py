@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 import numpy as np
 from .._mpe_utils.core import World, Agent, Landmark
 from .._mpe_utils.scenario import BaseScenario
@@ -63,16 +65,24 @@ class Scenario(BaseScenario):
         num_agents = num_predators + num_preys
         self.discrete_speeds = discrete_speeds
         self.prey_base_speed = prey_base_speed
-        self.prey_speed_multipliers = prey_speed_multipliers
+        self.prey_speed_multipliers = (
+            prey_speed_multipliers
+            if isinstance(prey_speed_multipliers, Iterable)
+            else [prey_speed_multipliers]
+        )
         self.prey_min_max_speed = prey_min_max_speed
         self.predator_base_speed = predator_base_speed
-        self.predator_speed_multipliers = predator_speed_multipliers
+        self.predator_speed_multipliers = (
+            predator_speed_multipliers
+            if isinstance(predator_speed_multipliers, Iterable)
+            else [predator_speed_multipliers]
+        )
         self.predator_min_max_speed = predator_min_max_speed
         self.individual_agent_speeds = individual_agent_speeds
 
         self.observe_predator_speed = observe_predator_speed
         self.observe_prey_speed = observe_prey_speed
-    
+
         # add agents
         world.agents = [Agent() for _ in range(num_agents)]
         world.num_predators = num_predators
@@ -82,25 +92,30 @@ class Scenario(BaseScenario):
             agent.adversary = True if i < num_predators else False
             base_name = "adversary" if agent.adversary else "agent"
             base_index = i if i < num_predators else i - num_predators
-            agent.name = '{}_{}'.format(base_name, base_index)
+            agent.name = "{}_{}".format(base_name, base_index)
             agent.collide = True
             agent.silent = True
             agent.size = predator_size if agent.adversary else prey_size
-            agent.accel = DEFAULT_PREDATOR_ACCEL if agent.adversary else DEFAULT_PREY_ACCEL
-            agent.max_speed = prey_base_speed if agent.adversary else predator_base_speed
+            agent.accel = (
+                DEFAULT_PREDATOR_ACCEL if agent.adversary else DEFAULT_PREY_ACCEL
+            )
+            agent.max_speed = (
+                prey_base_speed if agent.adversary else predator_base_speed
+            )
 
         # add landmarks as obstacles
         world.landmarks = [Landmark() for _ in range(num_obstacles)]
         for i, landmark in enumerate(world.landmarks):
-           landmark.name = 'landmark %d' % i
-           landmark.collide = True
-           landmark.movable = False
-           landmark.size = 0.2
-           landmark.boundary = False
+            landmark.name = "landmark %d" % i
+            landmark.collide = True
+            landmark.movable = False
+            landmark.size = 0.2
+            landmark.boundary = False
         return world
-    
-    
-    def _assign_agent_speeds(self, agents, base_speed, speed_multipliers, speed_range, np_random):
+
+    def _assign_agent_speeds(
+        self, agents, base_speed, speed_multipliers, speed_range, np_random
+    ):
         """
         Assigns speed to each agent based on base speed and speed multipliers
         :param agents: list of agents
@@ -115,14 +130,18 @@ class Scenario(BaseScenario):
                 multipliers = np_random.choice(speed_multipliers, len(agents))
             else:
                 min_speed_multiplier, max_speed_multiplier = speed_range
-                multipliers = np_random.uniform(min_speed_multiplier, max_speed_multiplier, len(agents))
+                multipliers = np_random.uniform(
+                    min_speed_multiplier, max_speed_multiplier, len(agents)
+                )
             speeds = base_speed * multipliers
         else:
             if self.discrete_speeds:
                 multiplier = np_random.choice(speed_multipliers)
             else:
                 min_speed_multiplier, max_speed_multiplier = speed_range
-                multiplier = np_random.uniform(min_speed_multiplier, max_speed_multiplier)
+                multiplier = np_random.uniform(
+                    min_speed_multiplier, max_speed_multiplier
+                )
             speeds = [base_speed * multiplier] * len(agents)
         for agent, speed in zip(agents, speeds):
             agent.max_speed = speed
@@ -186,7 +205,11 @@ class Scenario(BaseScenario):
 
     def reward(self, agent, world):
         # Agents are rewarded based on minimum agent distance to each landmark
-        main_reward = self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
+        main_reward = (
+            self.adversary_reward(agent, world)
+            if agent.adversary
+            else self.agent_reward(agent, world)
+        )
         return main_reward
 
     def agent_reward(self, agent, world):
@@ -196,7 +219,9 @@ class Scenario(BaseScenario):
         adversaries = self.adversaries(world)
         if shape:  # reward can optionally be shaped (increased reward for increased distance from adversary)
             for adv in adversaries:
-                rew += PREY_REWARD_DIST_COEF * np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos)))
+                rew += PREY_REWARD_DIST_COEF * np.sqrt(
+                    np.sum(np.square(agent.state.p_pos - adv.state.p_pos))
+                )
         if agent.collide:
             for a in adversaries:
                 if self.is_collision(a, agent):
@@ -209,6 +234,7 @@ class Scenario(BaseScenario):
             if x < 1.0:
                 return (x - 0.9) * 10
             return min(np.exp(2 * x - 2), 10)
+
         for p in range(world.dim_p):
             x = abs(agent.state.p_pos[p])
             rew -= bound(x)
@@ -223,16 +249,26 @@ class Scenario(BaseScenario):
         adversaries = self.adversaries(world)
         if shape:  # reward can optionally be shaped (decreased reward for increased distance from agents)
             for pr in preys:
-                rew -= min([np.sqrt(np.sum(np.square(pr.state.p_pos - adv.state.p_pos))) for adv in adversaries])
+                rew -= min(
+                    [
+                        np.sqrt(np.sum(np.square(pr.state.p_pos - adv.state.p_pos)))
+                        for adv in adversaries
+                    ]
+                )
         if agent.collide:
             for pr in preys:
                 for adv in adversaries:
                     if self.is_collision(pr, adv):
                         rew += PREDATOR_REWARD_CAPTURE
                         break
-            all_preys_captured = all([any([self.is_collision(pr, adv) for adv in adversaries]) for pr in preys])
+            all_preys_captured = all(
+                [
+                    any([self.is_collision(pr, adv) for adv in adversaries])
+                    for pr in preys
+                ]
+            )
             if all_preys_captured:
-                    rew += PREDATOR_REWARD_ALL_CAPTURED
+                rew += PREDATOR_REWARD_ALL_CAPTURED
         return rew
 
     def observation(self, agent, world):
@@ -258,4 +294,6 @@ class Scenario(BaseScenario):
                 other_max_speed.append([other.max_speed])
         # get own position and velocity
         observation_self = [agent.state.p_pos] + [agent.state.p_vel]
-        return np.concatenate(observation_self + entity_pos + other_pos + other_vel + other_max_speed)
+        return np.concatenate(
+            observation_self + entity_pos + other_pos + other_vel + other_max_speed
+        )
