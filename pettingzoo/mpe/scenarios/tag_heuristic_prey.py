@@ -27,6 +27,8 @@ class Scenario(BaseScenario):
         num_preys=1,
         num_predators=3,
         num_obstacles=0,
+        prey_acceleration=DEFAULT_PREY_ACCEL,
+        predator_acceleration=DEFAULT_PREDATOR_ACCEL,
         prey_base_speed=DEFAULT_PREY_SPEED,
         predator_base_speed=DEFAULT_PREDATOR_SPEED,
         discrete_speeds=True,
@@ -45,6 +47,8 @@ class Scenario(BaseScenario):
         num_preys: number of prey agents
         num_predators: number of predator agents
         num_obstacles: number of obstacle landmarks in environment
+        prey_acceleration: acceleration of prey agents
+        predator_acceleration: acceleration of predator agents
         prey_base_speed: base speed of prey agents
         predator_base_speed: base speed of predator agents
         discrete_speeds: whether to use discrete speed values or sample from a range
@@ -97,7 +101,7 @@ class Scenario(BaseScenario):
             agent.silent = True
             agent.size = predator_size if agent.adversary else prey_size
             agent.accel = (
-                DEFAULT_PREDATOR_ACCEL if agent.adversary else DEFAULT_PREY_ACCEL
+                predator_acceleration if agent.adversary else prey_acceleration
             )
             agent.max_speed = (
                 prey_base_speed if agent.adversary else predator_base_speed
