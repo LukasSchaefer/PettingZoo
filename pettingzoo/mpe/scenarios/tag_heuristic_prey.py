@@ -181,7 +181,7 @@ class Scenario(BaseScenario):
             )
         accs = [base_acc * multiplier] * len(agents)
         for agent, acc in zip(agents, accs):
-            agent.max_acc = acc
+            agent.accel = acc
 
     def reset_world(self, world, np_random):
         # assign speeds to prey agents
