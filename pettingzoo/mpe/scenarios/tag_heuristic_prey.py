@@ -28,14 +28,17 @@ class Scenario(BaseScenario):
         num_predators=3,
         num_obstacles=0,
         prey_acceleration=DEFAULT_PREY_ACCEL,
-        predator_acceleration=DEFAULT_PREDATOR_ACCEL,
+        predator_base_acc=DEFAULT_PREDATOR_ACCEL,
         prey_base_speed=DEFAULT_PREY_SPEED,
         predator_base_speed=DEFAULT_PREDATOR_SPEED,
         discrete_speeds=True,
+        discrete_accs=True,
         prey_speed_multipliers=[1.0],
         predator_speed_multipliers=[1.0],
         prey_min_max_speed=(1.0, 1.0),
         predator_min_max_speed=(1.0, 1.0),
+        predator_acc_multipliers=[1.0],
+        predator_min_max_acc=(1.0, 1.0),
         individual_agent_speeds=False,
         observe_predator_speed=False,
         observe_prey_speed=False,
@@ -68,6 +71,7 @@ class Scenario(BaseScenario):
         world.dim_c = 2
         num_agents = num_predators + num_preys
         self.discrete_speeds = discrete_speeds
+        self.discrete_accs = discrete_accs
         self.prey_base_speed = prey_base_speed
         self.prey_speed_multipliers = (
             prey_speed_multipliers
@@ -81,8 +85,15 @@ class Scenario(BaseScenario):
             if isinstance(predator_speed_multipliers, Iterable)
             else [predator_speed_multipliers]
         )
+        self.predator_acc_multipliers = (
+            predator_acc_multipliers
+            if isinstance(predator_acc_multipliers, Iterable)
+            else [predator_acc_multipliers]
+        )
         self.predator_min_max_speed = predator_min_max_speed
         self.individual_agent_speeds = individual_agent_speeds
+        self.predator_base_acc =predator_base_acc
+        self.predator_min_max_acc = predator_min_max_acc
 
         self.observe_predator_speed = observe_predator_speed
         self.observe_prey_speed = observe_prey_speed
@@ -101,10 +112,10 @@ class Scenario(BaseScenario):
             agent.silent = True
             agent.size = predator_size if agent.adversary else prey_size
             agent.accel = (
-                predator_acceleration if agent.adversary else prey_acceleration
+                predator_base_acc if agent.adversary else prey_acceleration
             )
             agent.max_speed = (
-                prey_base_speed if agent.adversary else predator_base_speed
+                predator_base_speed if agent.adversary else prey_base_speed
             )
 
         # add landmarks as obstacles
@@ -150,6 +161,28 @@ class Scenario(BaseScenario):
         for agent, speed in zip(agents, speeds):
             agent.max_speed = speed
 
+    def _assign_agent_accs(
+        self, agents, base_acc, acc_multipliers, acc_range, np_random
+    ):
+        """
+        Assigns speed to each agent based on base speed and speed multipliers
+        :param agents: list of agents
+        :param base_speed: base speed of agents
+        :param speed_multipliers: list of speed multipliers to sample from
+        :param speed_range: range of speeds to sample from
+        :param np_random: random number generator
+        """
+        if self.discrete_accs:
+            multiplier = np_random.choice(acc_multipliers)
+        else:
+            min_acc_multiplier, max_acc_multiplier = acc_range
+            multiplier = np_random.uniform(
+                min_acc_multiplier, max_acc_multiplier
+            )
+        accs = [base_acc * multiplier] * len(agents)
+        for agent, acc in zip(agents, accs):
+            agent.max_acc = acc
+
     def reset_world(self, world, np_random):
         # assign speeds to prey agents
         self._assign_agent_speeds(
@@ -165,6 +198,14 @@ class Scenario(BaseScenario):
             self.predator_base_speed,
             self.predator_speed_multipliers,
             self.predator_min_max_speed,
+            np_random,
+        )
+        # assign accs to predator agents
+        self._assign_agent_accs(
+            [agent for agent in world.agents if agent.adversary],
+            self.predator_base_acc,
+            self.predator_acc_multipliers,
+            self.predator_min_max_acc,
             np_random,
         )
 
